@@ -1,0 +1,397 @@
+<html>
+	<head>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+		<script type="text/javascript">
+			let listObjs = [];
+
+			function resetFields(obj = null) {
+				if (!obj){
+					$("input#id").val("");
+					$("input#cepOrigem").val("");
+					$("input#latOrigem").val("");
+					$("input#lonOrigem").val("");
+					$("input#cepDestino").val("");
+					$("input#latDestino").val("");
+					$("input#lonDestino").val("");
+					$("input#distancia").val("");
+					$("input#dataCadastro").val("");
+					$("input#dataAlteracao").val("");
+					$("button#submit").attr("disabled", "true");
+				} else {
+					$("input#id").val(obj.id);
+					$("input#cepOrigem").val(obj.cep_ori);
+					setTimeout(function(){
+  						validateCEP($("input#cepOrigem"));
+						$("input#cepOrigem").mask('00.000-000');
+					}, 1000);
+
+					$("input#cepDestino").val(obj.cep_des);
+					setTimeout(function(){
+  						validateCEP($("input#cepDestino"));
+						$("input#cepDestino").mask('00.000-000');
+					}, 3000);
+
+					calculateDistance();
+					$("input#dataCadastro").val(obj.dt_cadastro);
+					$("input#dataAlteracao").val(obj.dt_alteracao);
+				}
+			}
+
+
+			function add() {
+				cepOri = $("input#cepOrigem").val();
+				cepDes = $("input#cepDestino").val();
+				distCalc = $("input#distancia").val();
+
+				if (cepOri.length && cepDes.length && distCalc.length) {
+					cepOri = cepOri.replace('.', '').replace('-', '');
+					cepDes = cepDes.replace('.', '').replace('-', '');
+					distCalc = distCalc.replace('.', '').replace(',', '.');
+
+					values = "&cepOri=" + cepOri + "&cepDes=" + cepDes + "&distCalc=" + distCalc;
+
+					$.ajax({
+						type: "GET",
+						url: "http://localhost/datafrete/backend/service.php?action=persist"+values,
+						processData: false,
+						success: function(ret) {
+					    	json = JSON.parse(ret);
+						    if (json && json.success && json.success == 1) {
+						    	alert("Calculo salvo.");
+								resetFields();
+						    } else {
+					    		alert("Ocorreu um erro ao calcular a distância.");
+					    	}
+						},
+						error: function(ret) {
+							alert("Ocorreu um erro ao calcular a distância.");
+						}
+					});
+				}
+			}
+
+			function update() {
+				id = $("input#id").val();
+				cepOri = $("input#cepOrigem").val();
+				cepDes = $("input#cepDestino").val();
+				distCalc = $("input#distancia").val();
+
+				if (cepOri.length && cepDes.length && distCalc.length) {
+					cepOri = cepOri.replace('.', '').replace('-', '');
+					cepDes = cepDes.replace('.', '').replace('-', '');
+					distCalc = distCalc.replace('.', '').replace(',', '.');
+
+					values = "&id=" + id + "&cepOri=" + cepOri + "&cepDes=" + cepDes + "&distCalc=" + distCalc;
+
+					$.ajax({
+						type: "GET",
+						url: "http://localhost/datafrete/backend/service.php?action=update"+values,
+						processData: false,
+						success: function(ret) {
+					    	json = JSON.parse(ret);
+						    if (json && json.success && json.success == 1) {
+						    	alert("Calculo salvo.");
+								resetFields();
+						    } else {
+					    		alert("Ocorreu um erro ao calcular a distância.");
+					    	}
+						},
+						error: function(ret) {
+							alert("Ocorreu um erro ao calcular a distância.");
+						}
+					});
+				}
+			}
+
+
+			function submit() {
+				if ($("input#id").val()) {
+					update();
+				} else {
+					add();
+				}
+			}
+
+			function list() {
+				$("tbody#listaBody").empty();
+				$.ajax({
+					type: "GET",
+					url: "http://localhost/datafrete/backend/service.php?action=list",
+					processData: false,
+					success: function(ret) {
+				    	json = JSON.parse(ret);
+					    if (json && json.success && json.success == 1) {
+					    	if (json.value) {
+					    		listObjs = json.value;
+					    		rows = "";
+					    		for (i in json.value) {
+					    			rows += '<tr> <th scope="row">' + json.value[i].id + '</th>'
+					    			rows += '<td class="cep">' + json.value[i].cep_ori + '</td>'; 
+					    			rows += '<td class="cep">' + json.value[i].cep_des + '</td>'; 
+					    			rows += '<td>' + json.value[i].dist_calculada + '</td>'; 
+					    			rows += '<td>' + formatDate(json.value[i].dt_cadastro) + '</td>'; 
+					    			rows += '<td>' + formatDate(json.value[i].dt_alteracao) + '</td>'; 
+					    			rows += '<td><button class="btn btn-primary" onclick="remove('+json.value[i].id+')">Excluir</button></td>';
+									rows += '<td><button class="btn btn-primary" onclick="edit('+json.value[i].id+')">Editar</button></td>';
+					    			rows += '</tr>';
+					    		};
+
+					    		$("tbody#listaBody").append(rows);
+					    		$(".cep").mask("00.000-000");
+
+					    	}
+
+					    } else {
+				    		alert("Ocorreu um erro ao consultar registros.");
+				    	}
+					},
+					error: function(ret) {
+						alert("Ocorreu um erro ao consultar registros.");
+					}
+				});
+			}
+
+			function findInList(id) {
+				for (i in listObjs) {
+					if (listObjs[i].id == id) {
+						return listObjs[i];
+					}
+				}
+			}
+
+			function edit(id) {
+				changeTab(1);
+				resetFields(findInList(id));
+			}
+
+			function remove(id) {
+				$.ajax({
+					type: "GET",
+					url: "http://localhost/datafrete/backend/service.php?action=delete&id="+id,
+					processData: false,
+					success: function(ret) {
+				    	json = JSON.parse(ret);
+					    if (json && json.success && json.success == 1) {
+					    	alert('Registro removido.');
+					    	list();
+					    } else {
+				    		alert("Ocorreu um erro ao excluir registro.");
+				    	}
+					},
+					error: function(ret) {
+						alert("Ocorreu um erro ao excluir registro.");
+					}
+				});
+			}
+
+			function changeTab(id) {
+				switch(id) {
+					case 1:
+						$("li#tabCadastro").addClass("active");
+						$("li#tabLista").removeClass("active");
+
+						$("div#telaCadastro").show();
+						$("div#telaLista").hide();
+
+						resetFields();
+
+						break;
+					case 2:
+						$("li#tabCadastro").removeClass("active");
+						$("li#tabLista").addClass("active");
+
+						$("div#telaCadastro").hide();
+						$("div#telaLista").show();
+
+						list();
+
+						break;
+					default:
+						$("li#tabCadastro").addClass("active");
+						$("li#tabLista").removeClass("active");
+
+						$("div#telaCadastro").show();
+						$("div#telaLista").hide();
+
+						break;
+				}
+			}
+
+			function formatDate(date) {
+				d = new Date(date);
+				month = "" + (d.getMonth() + 1);
+				day = "" + d.getDate();
+				year = "" + d.getFullYear();
+				hour = "" + d.getHours();
+				minute = "" + d.getMinutes();
+
+				day = day.length < 2 ? "0" + day : day;
+				month = month.length < 2 ? "0" + month : month;
+				hour = hour.length < 2 ? "0" + hour : hour;
+				minute = minute.length < 2 ? "0" + minute : minute;
+
+
+				return [day, month, year].join('/') + " " + [hour, minute].join(':');
+			 }
+
+			function calculateDistance() {
+				latOri = $("input.latitude.origem").val();
+				latDes = $("input.latitude.destino").val();
+				lonOri = $("input.longitude.origem").val();
+				lonDes = $("input.longitude.destino").val();
+
+				if (latOri && latDes && lonOri && lonDes) {
+					values = "&lat1="+latOri;
+					values += "&lat2="+latDes;
+					values += "&lon1="+lonOri;
+					values += "&lon2="+lonDes;
+
+					$.ajax({
+					  type: "GET",
+					  url: "http://localhost/datafrete/backend/service.php?action=calculateDistance"+values,
+					  processData: false,
+					  success: function(ret) {
+					    json = JSON.parse(ret);
+					    if (json && json.success && json.success == 1) {
+					    	$("input#distancia").val(json.value);
+					    } else {
+				    		alert("Ocorreu um erro ao calcular a distância.");
+				    	}
+
+				    	$("button#submit").attr("disabled", false);
+					  },
+					  error: function(ret) {
+					  	alert("Ocorreu um erro ao calcular a distância.");
+					  }
+					});
+				}
+			}
+
+			function validateCEP(field) {
+				if ($(field).val()) {
+					cep = $(field).val().replace('.', '').replace('-', '');
+
+					if (cep.length == 8) {
+						$.ajax({
+						  type: "GET",
+						  url: "http://localhost/datafrete/backend/service.php?action=validateCEP&value="+cep,
+						  processData: false,
+						  success: function(ret) {
+						    json = JSON.parse(ret);
+						    if (json && json.success && json.success == 1) {
+						    	ret = JSON.parse(json.value);
+						    	if (!ret.latitude || !ret.longitude) {
+						    		return alert("CEP incorreto.")
+						    	}
+
+						    	tipoCampo = $(field).attr("tipoCampo");
+
+						    	$("input."+tipoCampo+".latitude").val(ret.latitude);
+						    	$("input."+tipoCampo+".longitude").val(ret.longitude);
+
+						    	calculateDistance();
+						    } else {
+					    		alert("Ocorreu um erro ao consultar o CEP.");
+					    	}
+						  },
+						  error: function(ret) {
+						  	alert("Ocorreu um erro ao consultar o CEP.");
+						  }
+						});
+					}
+				}
+			}
+
+			$(document).ready(function() {
+				changeTab(null);
+			});
+		</script>
+
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.mask/1.14.15/jquery.mask.min.js"></script>
+	</head>
+	<body>
+		<ul class="nav nav-tabs">
+			<li id="tabCadastro" onclick="changeTab(1)">
+				<a href="#">Cadastro</a>
+			</li>
+
+			<li id="tabLista" onclick="changeTab(2)">
+				<a href="#">Lista</a>
+			</li>
+		</ul>
+
+		<div id="telaCadastro">
+			<input type="hidden" id="id" value="">
+
+			<div class="form-group col-sm-12">
+				<label for="cepOrigem">CEP de Origem</label>
+				<input class="form-control" tipoCampo="origem" id="cepOrigem" placeholder="Digite o CEP de origem" onfocusout="validateCEP(this)" onkeypress="$(this).mask('00.000-000')">
+			</div>
+
+			<div class="form-group col-sm-6">
+				<label for="latOrigem">Latitude Origem</label>
+				<input class="form-control origem latitude" id="latOrigem" placeholder="Latitude de Origem" readonly>
+			</div>
+
+			<div class="form-group col-sm-6">
+				<label for="lonOrigem">Longitude Origem</label>
+				<input class="form-control origem longitude" id="lonOrigem" placeholder="Longitude de Origem" readonly>
+			</div>
+
+			<div class="form-group col-sm-12">
+				<label for="cepDestino">CEP de Destino</label>
+				<input class="form-control" id="cepDestino" tipoCampo="Destino" placeholder="Digite o CEP de destino" onfocusout="validateCEP(this)" onkeypress="$(this).mask('00.000-000')">
+			</div>
+
+			<div class="form-group col-sm-6">
+				<label for="latDestino">Latitude Destino</label>
+				<input class="form-control destino latitude" id="latDestino" placeholder="Latitude de Destino" readonly>
+			</div>
+
+			<div class="form-group col-sm-6">
+				<label for="lonDestino">Longitude Destino</label>
+				<input class="form-control destino longitude" id="lonDestino" placeholder="Longitude de Destino" readonly>
+			</div>
+
+			<div class="form-group col-sm-12">
+				<label for="distancia">Dist&acirc;ncia Calculada (m)</label>
+				<input class="form-control" id="distancia" placeholder="Dist&acirc;ncia Calculada" readonly>
+			</div>
+
+			<div class="form-group col-sm-12">
+				<label for="dataCadastro">Data de Cadastro</label>
+				<input class="form-control" id="dataCadastro" placeholder="Data de Cadastro" readonly>
+			</div>
+
+			<div class="form-group col-sm-12">
+				<label for="dataAlteracao">Data de Altera&ccedil;&atilde;o</label>
+				<input class="form-control" id="dataAlteracao" placeholder="Data de altera&ccedil;&atilde;o" readonly>
+			</div>
+
+			<div class="form-group col-sm-12">
+				<button class="btn btn-primary" id="submit" onclick="submit()" disabled>Salvar</button>
+			</div>
+		</div>
+
+		<div id="telaLista">
+			<table class="table">
+				<thead>
+					<tr>
+						<th scope="col">Id</th>
+						<th scope="col">Cep Origem</th>
+						<th scope="col">Cep Destino</th>
+						<th scope="col">Distancia Calculada (m)</th>
+						<th scope="col">Data Cadastro</th>
+						<th scope="col">Data Altera&ccedil;&atilde;o</th>
+						<th scope="col"></th>
+						<th scope="col"></th>
+					</tr>
+				</thead>
+
+				<tbody id="listaBody">
+				</tbody>
+			</table>
+		</div>
+	</body>
+</html>
